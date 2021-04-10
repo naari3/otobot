@@ -16,7 +16,7 @@ use regex::Regex;
 const MIN_WORD_COUNT: usize = 2;
 const MIN_ALPHABET_WORD_COUNT: usize = 3;
 const SHOULD_FOLLOW_COUNT: usize = 10;
-const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 2;
+const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 3;
 const FETCH_TWEETS_COUNT: i32 = 100;
 const TWEET_SAMPLES_COUNT: usize = 100;
 
@@ -46,16 +46,19 @@ async fn main() {
         .try_collect()
         .await
         .unwrap();
+    println!("following: {}", friends.len());
     let followers: HashSet<u64> = user::followers_ids(account.id, &token)
         .map_ok(|r| r.response)
         .try_collect()
         .await
         .unwrap();
+    println!("followers: {}", followers.len());
     let otomad2_friends: HashSet<u64> = user::friends_ids("otomad2", &token)
         .map_ok(|r| r.response)
         .try_collect()
         .await
         .unwrap();
+    println!("otomad2 following: {}", otomad2_friends.len());
 
     // 差のうちN件をフォロー
     let mut should_follow_ids = followers
@@ -64,6 +67,7 @@ async fn main() {
         .collect::<Vec<_>>()
         .into_iter()
         .choose_multiple(&mut rng, SHOULD_FOLLOW_COUNT);
+    println!("will follow ids: {:?}", should_follow_ids);
 
     // otomad2がフォローしていたアカウントをフォロー
     let mut should_follow_ids_2 = followers
@@ -72,6 +76,8 @@ async fn main() {
         .collect::<Vec<_>>()
         .into_iter()
         .choose_multiple(&mut rng, SHOULD_OTOMAD2_FOLLOW_COUNT);
+    println!("and will follow ids: {:?}", should_follow_ids_2);
+
     should_follow_ids.append(&mut should_follow_ids_2);
     if should_follow_ids.len() == 0 {
         println!("No follow ones");
@@ -100,7 +106,6 @@ async fn main() {
             }
         }
         // 正規化する
-        println!("text: {}", status.text);
         let mut text = status.text.clone();
         text = url_re.replace_all(&text, "");
         for ht in &status.entities.hashtags {
@@ -128,7 +133,6 @@ async fn main() {
                         if token.text.graphemes(true).count() >= MIN_WORD_COUNT {
                             nouns.push(token.text);
                         }
-                        println!("名詞: {:?}", token.text);
                     }
                     "UNK" => {
                         if space_re.replace_all(token.text, "").len() == 0 {
@@ -137,7 +141,6 @@ async fn main() {
                         if token.text.graphemes(true).count() >= MIN_ALPHABET_WORD_COUNT {
                             nouns.push(token.text);
                         }
-                        println!("UNK:  {:?}", token.text);
                     }
                     _ => {}
                 }
