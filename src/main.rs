@@ -11,7 +11,10 @@ use rand::{seq::IteratorRandom, thread_rng};
 use lindera::tokenizer::Tokenizer;
 use lindera_core::core::viterbi::Mode;
 
+use regex::Regex;
+
 const MIN_WORD_COUNT: usize = 2;
+const MIN_ALPHABET_WORD_COUNT: usize = 3;
 const SHOULD_FOLLOW_COUNT: usize = 10;
 const FETCH_TWEETS_COUNT: i32 = 100;
 const TWEET_SAMPLES_COUNT: usize = 100;
@@ -19,6 +22,9 @@ const TWEET_SAMPLES_COUNT: usize = 100;
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+
+    let url_re = Regex::new(r"https?://(www.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
+    let space_re = Regex::new(r"[[:space:]]").unwrap();
 
     let c_key = env::var("CONSUMER_KEY").expect("Please set consumer-key in .env");
     let c_secret = env::var("CONSUMER_SECRET").expect("Please set consumer-secret in .env");
@@ -72,10 +78,24 @@ async fn main() {
                 continue;
             }
         }
-        tweet_texts.push(status.text.clone())
+        if let Some(lang) = &status.lang {
+            match &lang[..] {
+                "ja" => {}
+                _ => continue,
+            }
+        }
+        // 正規化する
+        println!("text: {}", status.text);
+        let mut text = status.text.clone();
+        text = url_re.replace_all(&text, "");
+        for ht in &status.entities.hashtags {
+            let hashed = format!("#{}", ht.text);
+            text = text.replace(&hashed, "");
+        }
+        tweet_texts.push(text);
     }
 
-    // ツイートをランダムにN件絞る
+    // // ツイートをランダムにN件絞る
     let texts = tweet_texts
         .iter()
         .choose_multiple(&mut thread_rng(), TWEET_SAMPLES_COUNT);
@@ -93,6 +113,16 @@ async fn main() {
                         if token.text.graphemes(true).count() >= MIN_WORD_COUNT {
                             nouns.push(token.text);
                         }
+                        println!("名詞: {:?}", token.text);
+                    }
+                    "UNK" => {
+                        if space_re.replace_all(token.text, "").len() == 0 {
+                            continue;
+                        }
+                        if token.text.graphemes(true).count() >= MIN_ALPHABET_WORD_COUNT {
+                            nouns.push(token.text);
+                        }
+                        println!("UNK:  {:?}", token.text);
                     }
                     _ => {}
                 }
