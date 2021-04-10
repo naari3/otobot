@@ -70,8 +70,8 @@ async fn main() {
     println!("will follow ids: {:?}", should_follow_ids);
 
     // otomad2がフォローしていたアカウントをフォロー
-    let mut should_follow_ids_2 = followers
-        .difference(&otomad2_friends)
+    let mut should_follow_ids_2 = otomad2_friends
+        .difference(&friends)
         .cloned()
         .collect::<Vec<_>>()
         .into_iter()
