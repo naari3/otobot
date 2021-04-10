@@ -16,6 +16,7 @@ use regex::Regex;
 const MIN_WORD_COUNT: usize = 2;
 const MIN_ALPHABET_WORD_COUNT: usize = 3;
 const SHOULD_FOLLOW_COUNT: usize = 10;
+const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 2;
 const FETCH_TWEETS_COUNT: i32 = 100;
 const TWEET_SAMPLES_COUNT: usize = 100;
 
@@ -50,14 +51,28 @@ async fn main() {
         .try_collect()
         .await
         .unwrap();
+    let otomad2_friends: HashSet<u64> = user::friends_ids("otomad2", &token)
+        .map_ok(|r| r.response)
+        .try_collect()
+        .await
+        .unwrap();
 
     // 差のうちN件をフォロー
-    let should_follow_ids = followers
+    let mut should_follow_ids = followers
         .difference(&friends)
         .cloned()
         .collect::<Vec<_>>()
         .into_iter()
         .choose_multiple(&mut rng, SHOULD_FOLLOW_COUNT);
+
+    // otomad2がフォローしていたアカウントをフォロー
+    let mut should_follow_ids_2 = followers
+        .difference(&otomad2_friends)
+        .cloned()
+        .collect::<Vec<_>>()
+        .into_iter()
+        .choose_multiple(&mut rng, SHOULD_OTOMAD2_FOLLOW_COUNT);
+    should_follow_ids.append(&mut should_follow_ids_2);
     if should_follow_ids.len() == 0 {
         println!("No follow ones");
     } else {
