@@ -16,7 +16,7 @@ use regex::Regex;
 const MIN_WORD_COUNT: usize = 2;
 const MIN_ALPHABET_WORD_COUNT: usize = 3;
 const SHOULD_FOLLOW_COUNT: usize = 10;
-const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 3;
+const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 2;
 const FETCH_TWEETS_COUNT: i32 = 100;
 const TWEET_SAMPLES_COUNT: usize = 100;
 
