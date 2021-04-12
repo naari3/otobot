@@ -96,7 +96,7 @@ async fn main() {
                 egg_mode::error::Error::TwitterError(_, errs) => {
                     let twerr = errs.errors.first().unwrap();
                     if twerr.code == 160 {
-                        println!("[SKIP] Alleady follow requested: {}", twerr);
+                        println!("[SKIP] {}", twerr);
                     }
                 }
                 _ => {
@@ -175,6 +175,7 @@ async fn main() {
             }
             Err(err) => {
                 if retry_count > ALLOWS_RETRY_COUNT {
+                    println!("continued {} times but failed {}", retry_count, err);
                     panic!(err);
                 }
                 println!("continue... {}", retry_count);
