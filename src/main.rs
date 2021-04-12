@@ -167,11 +167,11 @@ async fn main() {
     }
 
     let mut retry_count = 0;
-    loop {
+    'outer: loop {
         match create_tweet(&nouns, &mut rng, &token).await {
             Ok(_) => {
                 println!("posted");
-                continue;
+                break 'outer;
             }
             Err(err) => {
                 if retry_count > ALLOWS_RETRY_COUNT {
@@ -182,6 +182,8 @@ async fn main() {
             }
         }
     }
+
+    println!("completed");
 }
 
 async fn create_tweet(
