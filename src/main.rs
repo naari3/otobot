@@ -2,11 +2,16 @@ use futures::TryStreamExt;
 use std::collections::HashSet;
 
 use dotenv::dotenv;
-use egg_mode::{self, auth, tweet::DraftTweet, user};
+use egg_mode::{
+    self, auth,
+    error::Error,
+    tweet::{DraftTweet, Tweet},
+    user, Response, Token,
+};
 use std::env;
 use unicode_segmentation::UnicodeSegmentation;
 
-use rand::{seq::IteratorRandom, thread_rng};
+use rand::{prelude::ThreadRng, seq::IteratorRandom, thread_rng};
 
 use lindera::tokenizer::Tokenizer;
 use lindera_core::core::viterbi::Mode;
@@ -19,6 +24,7 @@ const SHOULD_FOLLOW_COUNT: usize = 10;
 const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 2;
 const FETCH_TWEETS_COUNT: i32 = 100;
 const TWEET_SAMPLES_COUNT: usize = 100;
+const ALLOWS_RETRY_COUNT: usize = 3;
 
 #[tokio::main]
 async fn main() {
@@ -85,7 +91,19 @@ async fn main() {
         println!("will follows {} account(s)", should_follow_ids.len());
     }
     for id in should_follow_ids {
-        user::follow(id, false, &token).await.unwrap();
+        if let Err(err) = user::follow(id, false, &token).await {
+            match err {
+                egg_mode::error::Error::TwitterError(_, errs) => {
+                    let twerr = errs.errors.first().unwrap();
+                    if twerr.code == 160 {
+                        println!("[SKIP] Alleady follow requested: {}", twerr);
+                    }
+                }
+                _ => {
+                    panic!(err)
+                }
+            }
+        };
         println!("followed: {}", id);
     }
 
@@ -148,11 +166,33 @@ async fn main() {
         }
     }
 
+    let mut retry_count = 0;
+    loop {
+        match create_tweet(&nouns, &mut rng, &token).await {
+            Ok(_) => {
+                println!("posted");
+            }
+            Err(err) => {
+                if retry_count > ALLOWS_RETRY_COUNT {
+                    panic!(err);
+                }
+                println!("continue... {}", retry_count);
+                retry_count += 1;
+            }
+        }
+    }
+}
+
+async fn create_tweet(
+    nouns: &Vec<&str>,
+    rng: &mut ThreadRng,
+    token: &Token,
+) -> Result<Response<Tweet>, Error> {
     // ランダムに一語選択する
-    let noun = nouns.iter().choose(&mut rng).expect("There is no nouns!");
+    let noun = nouns.iter().choose(rng).expect("There is no nouns!");
     println!("音{}", noun);
 
     // ツイートする
     let tweet = DraftTweet::new(format!("音{}", noun));
-    tweet.send(&token).await.unwrap();
+    Ok(tweet.send(token).await?)
 }
