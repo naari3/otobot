@@ -171,6 +171,7 @@ async fn main() {
         match create_tweet(&nouns, &mut rng, &token).await {
             Ok(_) => {
                 println!("posted");
+                continue;
             }
             Err(err) => {
                 if retry_count > ALLOWS_RETRY_COUNT {
