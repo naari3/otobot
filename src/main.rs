@@ -2,12 +2,7 @@ use futures::TryStreamExt;
 use std::collections::HashSet;
 
 use dotenv::dotenv;
-use egg_mode::{
-    self, auth,
-    error::Error,
-    tweet::{DraftTweet, Tweet},
-    user, Response, Token,
-};
+use egg_mode::{self, auth, error::Error, tweet::DraftTweet, user, Token};
 use std::env;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -33,6 +28,10 @@ async fn main() {
     let url_re = Regex::new(r"https?://(www.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
     let space_re = Regex::new(r"[[:space:]]").unwrap();
 
+    let dry_run = env::var("DRY_RUN")
+        .expect("Please set dry-run in .env")
+        .parse::<bool>()
+        .expect("Please set true or false for DRY_RUN");
     let c_key = env::var("CONSUMER_KEY").expect("Please set consumer-key in .env");
     let c_secret = env::var("CONSUMER_SECRET").expect("Please set consumer-secret in .env");
     let a_key = env::var("ACCESS_KEY").expect("Please set access-key in .env");
@@ -168,7 +167,7 @@ async fn main() {
 
     let mut retry_count = 0;
     'outer: loop {
-        match create_tweet(&nouns, &mut rng, &token).await {
+        match create_tweet(&nouns, &mut rng, &token, dry_run).await {
             Ok(_) => {
                 println!("posted");
                 break 'outer;
@@ -191,12 +190,16 @@ async fn create_tweet(
     nouns: &Vec<&str>,
     rng: &mut ThreadRng,
     token: &Token,
-) -> Result<Response<Tweet>, Error> {
+    dry_run: bool,
+) -> Result<(), Error> {
     // ランダムに一語選択する
     let noun = nouns.iter().choose(rng).expect("There is no nouns!");
     println!("音{}", noun);
 
     // ツイートする
-    let tweet = DraftTweet::new(format!("音{}", noun));
-    Ok(tweet.send(token).await?)
+    if !dry_run {
+        let tweet = DraftTweet::new(format!("音{}", noun));
+        tweet.send(token).await?;
+    }
+    Ok(())
 }
