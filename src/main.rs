@@ -14,6 +14,7 @@ use lindera_core::core::viterbi::Mode;
 use regex::Regex;
 
 // デフォルト値たち
+const DRY_RUN: bool = false;
 const MIN_WORD_COUNT: usize = 2;
 const MIN_ALPHABET_WORD_COUNT: usize = 3;
 const SHOULD_FOLLOW_COUNT: usize = 10;
@@ -38,10 +39,7 @@ async fn main() {
     let url_re = Regex::new(r"https?://(www.)?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_+.~#?&/=]*)").unwrap();
     let space_re = Regex::new(r"[[:space:]]").unwrap();
 
-    let dry_run = env::var("DRY_RUN")
-        .expect("Please set dry-run in env")
-        .parse::<bool>()
-        .expect("Please set true or false for DRY_RUN");
+    let dry_run = env_or_default("DRY_RUN", DRY_RUN);
     let min_word_count = env_or_default("MIN_WORD_COUNT", MIN_WORD_COUNT);
     let min_alphabet_word_count =
         env_or_default("MIN_ALPHABET_WORD_COUNT", MIN_ALPHABET_WORD_COUNT);
@@ -189,7 +187,9 @@ async fn main() {
     'outer: loop {
         match create_tweet(&nouns, &mut rng, &token, dry_run).await {
             Ok(_) => {
-                println!("posted");
+                if !dry_run {
+                    println!("posted");
+                }
                 break 'outer;
             }
             Err(err) => {
