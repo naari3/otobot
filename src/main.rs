@@ -107,21 +107,23 @@ async fn main() {
     } else {
         println!("will follows {} account(s)", should_follow_ids.len());
     }
-    for id in should_follow_ids {
-        if let Err(err) = user::follow(id, false, &token).await {
-            match err {
-                egg_mode::error::Error::TwitterError(_, errs) => {
-                    let twerr = errs.errors.first().unwrap();
-                    if twerr.code == 160 {
-                        println!("[SKIP] {}", twerr);
+    if !dry_run {
+        for id in should_follow_ids {
+            if let Err(err) = user::follow(id, false, &token).await {
+                match err {
+                    egg_mode::error::Error::TwitterError(_, errs) => {
+                        let twerr = errs.errors.first().unwrap();
+                        if twerr.code == 160 {
+                            println!("[SKIP] {}", twerr);
+                        }
+                    }
+                    _ => {
+                        panic!(err)
                     }
                 }
-                _ => {
-                    panic!(err)
-                }
-            }
-        };
-        println!("followed: {}", id);
+            };
+            println!("followed: {}", id);
+        }
     }
 
     // TLからツイートを取得
