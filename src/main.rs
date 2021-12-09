@@ -22,6 +22,7 @@ const SHOULD_OTOMAD2_FOLLOW_COUNT: usize = 2;
 const FETCH_TWEETS_COUNT: usize = 100;
 const TWEET_SAMPLES_COUNT: usize = 100;
 const ALLOWS_RETRY_COUNT: usize = 3;
+const ACCOUNT_LOOKUP_COUNT: usize = 100;
 
 fn env_or_default<T: FromStr>(env_key: &str, default: T) -> T {
     env::var(env_key).map_or(default, |s| match s.parse::<T>() {
@@ -108,8 +109,18 @@ async fn main() {
         println!("will follows {} account(s)", should_follow_ids.len());
     }
     if !dry_run {
-        for id in should_follow_ids {
-            if let Err(err) = user::follow(id, false, &token).await {
+        let mut should_follow_users = vec![];
+        for id_chunk in should_follow_ids.chunks(ACCOUNT_LOOKUP_COUNT) {
+            let ids = id_chunk.to_vec();
+            let response = user::lookup(ids, &token).await.unwrap();
+            should_follow_users.extend(response.response);
+        }
+        should_follow_users = should_follow_users
+            .into_iter()
+            .filter(|predicate| !predicate.protected)
+            .collect::<Vec<_>>();
+        for user in should_follow_users {
+            if let Err(err) = user::follow(user.id, false, &token).await {
                 match err {
                     egg_mode::error::Error::TwitterError(_, errs) => {
                         let twerr = errs.errors.first().unwrap();
@@ -118,11 +129,11 @@ async fn main() {
                         }
                     }
                     _ => {
-                        panic!(err)
+                        panic!("{}", err)
                     }
                 }
             };
-            println!("followed: {}", id);
+            println!("followed: {:?}", user);
         }
     }
 
@@ -197,7 +208,7 @@ async fn main() {
             Err(err) => {
                 if retry_count > allows_retry_count {
                     println!("continued {} times but failed {}", retry_count, err);
-                    panic!(err);
+                    panic!("{}", err);
                 }
                 println!("continue... {}", retry_count);
                 retry_count += 1;
